@@ -34,7 +34,8 @@ var PROVIDERS = [
   { id: 'portland', label: 'Portland', bonus: -200 }, // segments return 503 intermittently
   { id: 'nashville', label: 'Nashville', bonus: -1000, dash: true }
 ];
-var REQUEST_TIMEOUT_MS = 15000;
+var REQUEST_TIMEOUT_MS = 8000;
+var DEADLINE_MS = 2500; // max wait for the per-server lookups; late servers are dropped
 var SHOW_ALL = true; // list every source after the Auto pick
 var DEBUG = true;
 function log() { if (DEBUG) console.log.apply(console, ['[Movy]'].concat([].slice.call(arguments))); }
@@ -228,11 +229,17 @@ function getStreams(tmdbId, mediaType, season, episode) {
       imdbId: meta.imdbId
     };
     log('meta', meta.title, meta.year, meta.imdbId);
-    return Promise.all(PROVIDERS.map(function (p) { return callProvider(p, params, seed, tmdbId); })).then(function (rest) {
+    var rest = new Array(PROVIDERS.length), t0 = Date.now();
+    var jobs = PROVIDERS.map(function (p, i) {
+      return callProvider(p, params, seed, tmdbId).then(function (d) { rest[i] = d; log(p.id, 'done', Date.now() - t0, 'ms'); });
+    });
+    // Return whatever has arrived by the deadline instead of waiting for the slowest server.
+    return bound(Promise.all(jobs), DEADLINE_MS, null).then(function () {
       var seen = {}, all = [];
       PROVIDERS.forEach(function (p, i) {
-        toCandidates(p, rest[i]).forEach(function (c) { if (!seen[c.url]) { seen[c.url] = 1; all.push(c); } });
+        toCandidates(p, rest[i] || null).forEach(function (c) { if (!seen[c.url]) { seen[c.url] = 1; all.push(c); } });
       });
+      log('deadline/all done after', Date.now() - t0, 'ms');
       all.sort(function (a, b) { return score(b) - score(a); });
       log('candidates', all.length);
       if (!all.length) return [];

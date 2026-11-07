@@ -1,13 +1,13 @@
 {
   "name": "Movy",
   "author": "Dazaike",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "scrapers": [
     {
       "id": "movy",
       "name": "Movy",
       "description": "Movies and TV from movy.sx (HLS, up to 2160p). Auto pick first, then every other working server.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "Dazaike",
       "supportedTypes": ["movie", "tv"],
       "filename": "providers/movy.js",
